@@ -23,5 +23,3 @@ ip(geoip:hk, geoip:mo) -> proxy
 
 # ===== 局域网与大陆 IP 直连 =====
 ip(geoip:private, geoip:cn) -> direct
-
-# auto-sync-test 23:52
