@@ -8,6 +8,7 @@
 |---|---|---|
 | `routingA.txt` | v2rayA 的 RoutingA 分流规则 | NAS 上的 v2rayA，每 24 小时自动拉取 |
 | `workbuddy.pac` | 浏览器/系统的 PAC 自动分流脚本 | Windows 系统代理（自动配置脚本） |
+| `clash-android.yaml` | Android 用 Clash 配置（HTTP 上游指向 NAS 20172） | FlClash / Clash Meta for Android |
 
 ## v2rayA 怎么用
 
