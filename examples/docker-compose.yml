@@ -1,0 +1,37 @@
+# v2rayA 部署示例（Docker + host 网络）
+#
+# 用法:
+#   cp examples/docker-compose.yml ./docker-compose.yml
+#   mkdir -p etc rules
+#   docker compose up -d
+#   浏览器打开 http://<设备IP>:2017 注册第一个账号（即管理员）
+#
+# 注意:
+#   1. 透明代理必须要 network_mode: host + privileged，桥接网络下只能当普通 HTTP/SOCKS 代理
+#   2. ./etc 必须挂出来，否则删容器 = 账号/订阅/节点/规则全丢
+#   3. ./rules 挂出来可以让规则数据跨重建保留，但代价是 geoip.dat/geosite.dat 不会随镜像更新
+#   4. 面板对全网卡开放，只在内网使用；公网暴露前先加防火墙或反向代理 + TLS
+
+services:
+  v2raya:
+    image: mzz2017/v2raya:latest   # 求稳可以钉版本，例如 2.5.14
+    container_name: v2raya
+    restart: unless-stopped
+    network_mode: host
+    privileged: true
+    mem_limit: 512m
+    cpus: "1.0"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    # host 网络下这段会被 Docker 丢弃，仅用于让部分 NAS 的图形界面显示端口列表
+    ports:
+      - "2017:2017"      # Web 面板
+      - "20170:20170"    # SOCKS5
+      - "20171:20171"    # HTTP
+      - "20172:20172"    # HTTP（应用 RoutingA 分流规则）
+    volumes:
+      - ./etc:/etc/v2raya            # 账号 / 订阅 / 节点 / 分流规则
+      - ./rules:/usr/share/v2raya    # geosite.dat / geoip.dat

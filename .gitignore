@@ -1,0 +1,14 @@
+# 备份产物（含管理员密码哈希与订阅链接，绝不入库）
+v2raya-backups/
+backups/
+*.tar.gz
+*.sha256
+
+# 本地部署目录（只在仓库根生效，examples/ 里的模板不受影响）
+/etc/
+/rules/
+/docker-compose.yml
+
+# 系统垃圾
+.DS_Store
+Thumbs.db
