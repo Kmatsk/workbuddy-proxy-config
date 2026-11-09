@@ -22,6 +22,35 @@ docker compose up -d          # 首次启动后浏览器开 http://<NAS_IP>:3000
 
 `docker-compose.yml` 的关键点：**必须 `network_mode: host`**。桥接模式下 53 端口映射会被 v2rayA 的 DNS 劫持规则截走，AdGuard 收不到 LAN 查询。
 
+`ports` 段在 host 网络下**运行时会被丢弃**（`up` 时会打印 `Published ports are discarded when using host network mode`），但映射仍然写进容器配置的 `HostConfig.PortBindings`。飞牛 Docker 界面就是读这个字段显示端口和「快捷访问」按钮，所以照样写：
+
+```yaml
+network_mode: host
+ports:            # 仅用于界面显示，实际可达靠 host 网络本身
+  - "3000:3000/tcp"
+  - "53:53/tcp"
+  - "53:53/udp"
+```
+
+填了之后不要以为真的在做端口转发 —— 改端口号不会生效，面板永远是 `192.168.3.100:3000`、DNS 永远是 `192.168.3.100:53`。
+
+### 改管理员账号密码
+
+AdGuard Home 的 API **没有改密码端点**（`/install/configure` 初始化完成后就返回 403，`/profile/update` 只能改显示名），只能改配置文件：
+
+```bash
+cd /vol1/1000/docker/AdGuard
+cp -a conf/AdGuardHome.yaml conf/AdGuardHome.yaml.bak
+docker compose stop                      # 必须先停，否则运行中的进程会把文件写回去
+# 编辑 conf/AdGuardHome.yaml 的 users 段：
+#   users:
+#     - name: Kmatsk
+#       password: $2a$10$...              ← bcrypt，cost 10，前缀 $2a$
+docker compose up -d
+```
+
+bcrypt 哈希生成：`python3 -c "import bcrypt;print(bcrypt.hashpw(b'你的密码', bcrypt.gensalt(rounds=10, prefix=b'2a')).decode())"`（需 `pip install bcrypt`）。前缀必须是 `$2a$`，Go 的 bcrypt 实现只认 2a/2b/2y，写成别的会静默拒绝登录。
+
 DNS 监听地址只能填 **NAS 的 LAN IP**（`192.168.3.100`），不能填 `0.0.0.0`：v2rayA 内核已经占了 `127.2.0.17:53`，通配绑定会报 `bind: address already in use`。
 
 > IP 是 DHCP 拿的。建议在路由器上给 NAS 做地址保留，否则 IP 一变，AdGuard 绑不上 53，全屋 DNS 立刻失效。
@@ -199,7 +228,8 @@ sudo tar -czf ~/adguard-$(date +%F).tar.gz -C /vol1/1000/docker AdGuard
 - 误拦专项检查全部通过：`baidu.com`、`www.qq.com`、`weixin.qq.com`、`taobao.com`、`jd.com`、`bilibili.com`、`douyin.com`、`kuaishou.com`、`iqiyi.com`、`v.qq.com`、`wx.qq.com`、`long.weixin.qq.com`、`github.com`、`upos-sz-mirrorcos.bilivideo.com` 均返回真实 IP
 - 拦截专项检查 11/11 命中：`doubleclick.net`、`cpro.baidu.com`、`pos.baidu.com`、`admaster.com.cn`、`pagead2.googlesyndication.com`、`pangle.io`、`pangolin-sdk-toutiao.com`、`gdt.qq.com`、`umeng.com`、`tracking.miaozhen.com`、`ads.kuaishou.com`
 - 补充包命中且主站无损：`ad/ads.kuaishou.com`、`cm/data.bilibili.com`、`afp.iqiyi.com`、`atm.youku.com`、`eclick.baidu.com` 被拦；`www.kuaishou.com`、`www.bilibili.com`、`www.iqiyi.com`、`www.youku.com` 正常
-- 容器重建（改 compose 加 `expose`）后 mangle 两条规则仍在，53/3000 均正常
+- 容器重建（改 compose）后 mangle 两条规则仍在，53/3000 均正常；容器重建不影响 iptables
+- 改管理员账号：停容器 → 改 `conf/AdGuardHome.yaml` 的 `users`（bcrypt `$2a$`）→ 起容器，新账号登录 200、旧账号 403；`ports` 写进 compose 后 `HostConfig.PortBindings` 里三组映射齐全（3000/tcp、53/tcp、53/udp），运行时仍被 host 网络忽略
 
 ## 常见故障
 
