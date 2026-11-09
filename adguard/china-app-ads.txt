@@ -1,0 +1,108 @@
+! Title: 国内 App / 视频网站 / 搜索广告补充包
+! Description: 补充抖音之外的国内广告位：百度联盟与搜索结果广告、快手、B 站、爱奇艺/优酷/腾讯视频的广告接口与监测；分三档，默认只启用安全档。
+! Homepage: https://github.com/Kmatsk/workbuddy-proxy-config
+! Last modified: 2026-11-10
+!
+! 使用方式：AdGuard Home → 过滤器 → DNS 过滤器 → 添加自定义过滤器，粘贴本文件 raw 地址
+!
+! 【必须先理解的能力边界】
+! DNS 只能拦"域名"，拦不了"同一个域名下的广告内容"。所以：
+!   · 抖音/快手的信息流视频广告、爱优腾的贴片广告 —— 拦不掉。广告和正片同域名同 CDN，
+!     拦了就是整片白屏，这是协议层限制，不是规则没写对。
+!   · 能拦的是：广告 SDK 的独立域名、广告投放后台、点击/曝光监测、归因上报、统计埋点。
+!   · 浏览器里的页面内广告（横幅、浮动）DNS 也拦不完全，那需要 AdGuard 浏览器扩展做元素隐藏。
+! 期望值：减少后台请求、减少跨 App 画像、减少其它 App 里嵌的联盟广告；不能"视频无广告"。
+!
+! =====================================================================
+! 安全档：纯广告 / 监测 / 统计域名，拦了不影响 App 正常功能
+! ---------------------------------------------------------------------
+
+! ===== 百度：搜索推广、联盟广告、点击与曝光监测 =====
+||cpro.baidu.com^
+||pos.baidu.com^
+||afd.baidu.com^
+||eclick.baidu.com^
+||cbjs.baidu.com^
+||mobads.baidu.com^
+||wangmeng.baidu.com^
+||union.baidu.com^
+||cpro.baidustatic.com^
+
+! ===== 快手：广告投放与效果监测 =====
+||ad.kuaishou.com^
+||ads.kuaishou.com^
+||ad.e.kuaishou.com^
+||adstats.kuaishou.com^
+||log.kuaishou.com^
+
+! ===== B 站：广告与统计 =====
+||cm.bilibili.com^
+||data.bilibili.com^
+||ad.bilibili.com^
+
+! ===== 爱奇艺：广告接口与投放（不碰 cache.video.iqiyi.com 视频流）=====
+||afp.iqiyi.com^
+||t7z.cupid.iqiyi.com^
+||ad.m.iqiyi.com^
+||cupid.iqiyi.com^
+
+! ===== 优酷 / 土豆：广告监测（不碰 ups.youku.com 视频流）=====
+||atm.youku.com^
+||ad.api.3g.youku.com^
+||ad.api.3g.tudou.com^
+
+! ===== 腾讯广告（广点通 / 优量汇）=====
+||gdt.qq.com^
+||e.qq.com^
+||ads.qq.com^
+
+! ===== 第三方移动广告 SDK 与归因平台 =====
+||pangle.io^
+||pangle-static.com^
+||pangolin-sdk-toutiao.com^
+||pangolin-sdk-toutiao-b.com^
+||pglstatp-toutiao.com^
+||oceanengine.com^
+||admaster.com.cn^
+||miaozhen.com^
+||umeng.com^
+||umengcloud.com^
+||talkingdata.com^
+||talkingdata.net^
+||appsflyer.com^
+||adjust.com^
+
+! =====================================================================
+! 进阶档：可能影响功能，默认注释，确认能接受代价再去掉行首的「! 」
+! ---------------------------------------------------------------------
+! ||mon.snssdk.com^        ! 抖音埋点，屏蔽后推荐可能变差
+! ||log.snssdk.com^        ! 抖音日志上传
+! ||mcs.snssdk.com^        ! 抖音配置下发，可能出现功能异常
+! ||ad.snssdk.com^         ! 抖音广告接口（部分版本）
+! ||api.kuaishouzt.com^    ! 快手广告/数据接口，屏蔽后可能出现加载异常
+! ||open.kuaishou.com^     ! 快手开放平台，屏蔽后第三方登录可能失败
+! ||xy.qq.com^             ! 腾讯广告素材，屏蔽后部分页面留白
+
+! =====================================================================
+! 禁区：绝对不能拦，拦了整个 App 就废
+! ---------------------------------------------------------------------
+! ||douyinvod.com^         ! 抖音视频 CDN
+! ||douyinpic.com^         ! 抖音图片 CDN
+! ||douyinstatic.com^      ! 抖音静态资源
+! ||snssdk.com^            ! 抖音 API 总域
+! ||kuaishou.com^          ! 快手主域（上面只拦了 ad./ads./log. 等子域）
+! ||kuaishouzt.com^        ! 快手 API
+! ||iqiyi.com^             ! 爱奇艺主域
+! ||cache.video.iqiyi.com^ ! 爱奇艺视频流
+! ||youku.com^             ! 优酷主域
+! ||ups.youku.com^         ! 优酷视频流
+! ||vv.video.qq.com^       ! 腾讯视频流
+! ||bilibili.com^          ! B 站主域（只拦 cm./data./ad. 子域）
+! ||bilivideo.com^         ! B 站视频 CDN
+
+! =====================================================================
+! 误伤急救：如果某个 App 出问题，把对应放行规则贴到 AdGuard「用户规则」
+! ---------------------------------------------------------------------
+! @@||cpro.baidu.com^
+! @@||ads.kuaishou.com^
+! @@||cm.bilibili.com^
