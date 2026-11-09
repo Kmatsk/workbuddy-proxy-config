@@ -13,6 +13,8 @@
 | `scripts/backup-v2raya.sh` | 一键备份配置目录（默认停服打包，避免 SQLite 撕裂） | 升级前、定期备份 |
 | `scripts/restore-v2raya.sh` | 恢复备份（默认 dry-run，`--force` 才执行） | 回滚 / 换机迁移 |
 | `scripts/sync-upstream.py` | 抓上游 README 章节，写进上面那份手册 | 本地手动同步 / GitHub Actions |
+| `adguard/README.md` | **AdGuard Home 部署与排错**：DNS 链路、v2rayA 劫持豁免、路由器改法 | NAS 上的全屋 DNS 过滤 |
+| `adguard/douyin-ads.txt` | 抖音/字节系广告域名规则（保守档，激进档默认注释） | AdGuard 自定义过滤器 |
 
 ## v2rayA 怎么用
 
@@ -64,6 +66,18 @@ docker exec v2raya v2raya --version   # 与 v2raya_core 版本必须一致
 ```
 
 > 备份包里含管理员密码哈希和全部订阅链接，脚本已设成 `600`。**别提交进仓库，也别放同步盘。**
+
+## 全屋 DNS 过滤
+
+NAS 上另跑了一个 AdGuard Home（`/vol1/1000/docker/AdGuard`），接管全屋 DNS，上游交给 v2rayA 内核解析：
+
+```
+LAN → 路由器 → PPPoE DNS 192.168.3.100:53 → AdGuard（过滤）→ v2rayA 内核 DNS（分流）
+```
+
+部署细节、为什么要在 `mangle` 表打 `0x80` 标记绕过 v2rayA 的 DNS 劫持、路由器 PPPoE DNS 怎么填，都在 **[adguard/README.md](adguard/README.md)**。
+
+抖音规则单独一份：[adguard/douyin-ads.txt](adguard/douyin-ads.txt)。**DNS 层拦不掉信息流视频广告**（和正片同域名同 CDN），能拦的是穿山甲等广告 SDK、监测与统计上报，具体边界写在文件头和 README 里。
 
 ## 静态规则说明
 

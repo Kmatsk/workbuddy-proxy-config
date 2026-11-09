@@ -1,0 +1,122 @@
+# AdGuard Home（NAS 侧 DNS 过滤）
+
+在飞牛 NAS 上跑 AdGuard Home，接管全屋 DNS 过滤；上游交给 v2rayA 内核，所以境外域名照样拿到干净解析。
+
+```
+LAN 客户端 → 路由器(192.168.3.1) → PPPoE DNS 192.168.3.100:53
+                                        ↓
+                                  AdGuard Home（过滤）
+                                        ↓ 上游 53（被 v2rayA 劫持到 127.0.0.1:52353）
+                                  v2rayA 内核 DNS（按 RoutingA 分流：国内直连 / 国外走代理）
+```
+
+## 部署
+
+```bash
+cd /vol1/1000/docker/AdGuard
+mkdir -p work conf
+docker compose up -d          # 首次启动后浏览器开 http://<NAS_IP>:3000 走初始化向导
+```
+
+`docker-compose.yml` 的关键点：**必须 `network_mode: host`**。桥接模式下 53 端口映射会被 v2rayA 的 DNS 劫持规则截走，AdGuard 收不到 LAN 查询。
+
+DNS 监听地址只能填 **NAS 的 LAN IP**（`192.168.3.100`），不能填 `0.0.0.0`：v2rayA 内核已经占了 `127.2.0.17:53`，通配绑定会报 `bind: address already in use`。
+
+> IP 是 DHCP 拿的。建议在路由器上给 NAS 做地址保留，否则 IP 一变，AdGuard 绑不上 53，全屋 DNS 立刻失效。
+
+## 为什么需要 dns-exempt.sh
+
+v2rayA 开启 DNS 劫持后会往 `nat PREROUTING` 写：
+
+```
+-A PREROUTING -p udp --dport 53 -j DNS_REDIRECT
+-A PREROUTING -p tcp --dport 53 -j DNS_REDIRECT
+```
+
+`PREROUTING` 是「包进网卡就先匹配」，**目的地是本机的包也算**。所以 LAN 客户端查 `192.168.3.100:53` 会被重定向到核心的 52353，AdGuard 一个请求都收不到（现象就是 `nslookup xxx 192.168.3.100` 一直超时）。
+
+第一版用 `iptables -t nat -I PREROUTING 1 ... -j RETURN` 放行，**重启一次 v2rayA 就失效** —— 它每次启动核心都用 `-I` 把劫持规则插到链首，把我们的规则顶到后面。
+
+现在的做法是打标记，利用 v2rayA 自己链首那条 `-m mark --mark 0x80/0x80 -j RETURN`：
+
+```bash
+iptables -t mangle -A PREROUTING -d 192.168.3.100 -p udp --dport 53 -j MARK --set-xmark 0x80/0x80
+iptables -t mangle -A PREROUTING -d 192.168.3.100 -p tcp --dport 53 -j MARK --set-xmark 0x80/0x80
+```
+
+`mangle PREROUTING` 先于 `nat PREROUTING` 执行，包被打上 0x80 后，v2rayA 的第一条规则就把它放行了；mangle 表在 redirect 模式下 v2rayA 不碰，重启核心也不会冲掉（实测重启两次规则仍在）。
+
+开机自启：`/etc/systemd/system/adguard-dns-exempt.service`（oneshot，`After=docker.service`），执行 `/vol1/1000/docker/AdGuard/dns-exempt.sh`，脚本幂等。
+
+只对「发往 NAS 自己 53」的包打标记。NAS 本机发出的 DNS（`dig`、容器里的解析）走 `OUTPUT` 链，仍然被 v2rayA 劫持 —— 这是**故意的**，本机查询不需要再过一遍 AdGuard，也避免了 AdGuard → 内核 → AdGuard 的环。
+
+## 路由器怎么改
+
+路由的 DHCP 参数改不了没关系，改 PPPoE 拨号里的 DNS 就行：路由器会把 LAN 的 DNS 请求转发给这两个地址。
+
+| 项目 | 值 |
+|---|---|
+| 首选 DNS | `192.168.3.100` |
+| 备用 DNS | `223.5.5.5` |
+
+备用留公网 DNS 是保命用的：NAS 关机或 AdGuard 挂了，家里还能上网（只是没有广告过滤）。两个都填 NAS 的话，NAS 一停，全屋断网。
+
+改完在 PC 上验证：
+
+```bash
+nslookup doubleclick.net 192.168.3.100   # 期望 0.0.0.0（被拦）
+nslookup baidu.com 192.168.3.100         # 期望正常 IP
+```
+
+再断开重连 WiFi，看是否真的走了新 DNS：AdGuard 面板 → 查询日志里能看到本机请求。
+
+## 抖音广告：能拦什么、拦不了什么
+
+**拦不了信息流里的视频广告。** 那些广告和正常视频同域名、同 CDN（`douyinvod.com` / `douyinpic.com`），DNS 只看域名，分不出这条是广告还是正片；拦了就是白屏卡顿。
+
+`douyin-ads.txt` 拦的是另一类东西，效果因版本而异：
+
+- 穿山甲 / 巨量引擎（字节的广告 SDK 与投放后台）—— 主要减少**其它 App** 里嵌的字节广告
+- 广告监测与归因（admaster、miaozhen、广点通）
+- 统计上报（友盟）
+
+文件里另有一组默认注释掉的「激进档」（`mon.snssdk.com`、`log.snssdk.com`、`mcs.snssdk.com`），去掉行首的 `!` 才会生效，代价写在注释里：推荐变差、消息/直播可能异常。
+
+### 想自己找抖音的广告域名
+
+1. 手机连家里 WiFi，打开抖音刷 1 分钟
+2. AdGuard 面板 → 查询日志，按客户端 IP 过滤，看「已拦截」和请求量最高的域名
+3. 可疑域名先在「用户规则」里临时加 `||xxx.com^` 试，**改完清一次 App 缓存**（抖音会缓存接口结果）
+4. 视频加载不出来就立刻 `@@||xxx.com^` 放行
+
+DNS 层能做到的就是这些。要真正去掉信息流广告，只能改客户端（去广告版 / LSPosed 模块），或者在路由器做 SNI 拦截（会误杀正常视频，不推荐）。
+
+## 运维
+
+```bash
+# 状态
+docker ps --filter name=adguardhome
+ss -lnup | grep ':53 '
+
+# 配置在哪
+/vol1/1000/docker/AdGuard/conf/AdGuardHome.yaml   # 全部设置（含密码哈希）
+/vol1/1000/docker/AdGuard/work/                   # 查询日志、统计库
+
+# 改了 dns-exempt.sh 之后
+sudo systemctl restart adguard-dns-exempt.service
+
+# 备份（含密码哈希与过滤规则，注意权限）
+sudo tar -czf ~/adguard-$(date +%F).tar.gz -C /vol1/1000/docker AdGuard
+```
+
+查询日志保留期在面板「设置 → 常规设置」里调，API 改会报 `unsupported interval`（`/control/querylog_config` 的字段校验比较挑），UI 改最省事。
+
+## 常见故障
+
+| 现象 | 原因 | 处理 |
+|---|---|---|
+| `nslookup 192.168.3.100` 超时 | 豁免规则没生效，查询被 v2rayA 劫走 | `iptables -t mangle -S PREROUTING \| grep 192.168.3.100`，没有就跑 `dns-exempt.sh` |
+| 容器起不来，日志报 `bind: address already in use` | DNS 监听填了 `0.0.0.0` | 改成 NAS 的 LAN IP |
+| 重启 v2rayA 后 DNS 全挂 | 用了 nat 表 RETURN 的旧方案 | 换 `dns-exempt.sh`（mangle 打标记版） |
+| 换了 NAS 的 IP 后全屋断网 | AdGuard 绑的还是旧 IP | 改 `AdGuardHome.yaml` 的 `bind_hosts`，或给 NAS 做 DHCP 保留 |
+| 全屋断网但 NAS 能上 | 路由器 DNS 指向 NAS，而 AdGuard/豁免规则挂了 | 先把 PPPoE 备用 DNS 设成 `223.5.5.5`，再修 |

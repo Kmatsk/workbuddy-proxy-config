@@ -1,0 +1,48 @@
+! Title: 抖音 / 字节系广告域名（保守档）
+! Description: 只拦广告 SDK、广告投放后台、广告监测与统计上报；不碰视频/图片 CDN，不会导致白屏或卡顿。
+! Homepage: https://github.com/Kmatsk/workbuddy-proxy-config
+! Last modified: 2026-11-10
+!
+! 适用：AdGuard Home / AdGuard DNS 自定义过滤规则
+! 加在：过滤器 → DNS 过滤器 → 添加自定义过滤器
+! 提醒：DNS 层去不掉抖音信息流里的视频广告——那些广告和正常视频同域名同 CDN，
+!       拦域名等于把正常视频一起拦了。这里能减少的是开屏/贴片里的第三方广告请求、
+!       广告 SDK 上报、以及其它 App 内嵌的穿山甲广告。
+!
+! ===== 穿山甲 / 巨量引擎（字节的广告 SDK 与投放平台）=====
+||pangle.io^
+||pangle-static.com^
+||pangolin-sdk-toutiao.com^
+||pangolin-sdk-toutiao-b.com^
+||pglstatp-toutiao.com^
+||oceanengine.com^
+||ad.oceanengine.com^
+!
+! ===== 广告监测 / 归因 =====
+||admaster.com.cn^
+||miaozhen.com^
+||gdt.qq.com^
+!
+! ===== 统计上报（不影响功能，减少后台流量与画像）=====
+||umeng.com^
+||umengcloud.com^
+!
+! =====================================================================
+! 激进档：可能影响抖音本身的功能，默认关闭，按需去掉行首的「! 」
+! 典型代价：推荐变差、消息/直播功能异常、甚至无法登录
+! ---------------------------------------------------------------------
+! ||mon.snssdk.com^         ! 埋点监控，屏蔽后推荐可能变差
+! ||log.snssdk.com^         ! 日志上传
+! ||mcs.snssdk.com^         ! 配置下发，屏蔽后可能出现功能异常
+! ||ad.snssdk.com^          ! 广告接口（部分版本走这里）
+!
+! 绝对不要拦（拦了会白屏/卡顿/无法播放）：
+! ||douyinvod.com^          ! 视频 CDN
+! ||douyinpic.com^          ! 图片 CDN
+! ||douyinstatic.com^       ! 静态资源
+! ||snssdk.com^             ! 抖音 API 总域，拦了整个 App 就废了
+!
+! =====================================================================
+! 误伤放行模板：把下面几行复制到 AdGuard 的「用户规则」里即可只放行某个域名
+! @@||douyinvod.com^
+! @@||douyinpic.com^
