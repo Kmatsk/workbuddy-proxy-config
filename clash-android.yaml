@@ -1,0 +1,47 @@
+mixed-port: 7890
+allow-lan: false
+mode: rule
+log-level: warning
+ipv6: false
+
+dns:
+  enable: true
+  ipv6: false
+  enhanced-mode: fake-ip
+  fake-ip-range: 198.18.0.1/16
+  fake-ip-filter:
+    - "*.lan"
+    - "*.local"
+    - "+.msftconnecttest.com"
+    - "+.msftncsi.com"
+  nameserver:
+    - 223.5.5.5
+    - 119.29.29.29
+    - 192.168.3.1
+
+proxies:
+  - name: "NAS-20172"
+    type: http
+    server: 192.168.3.100
+    port: 20172
+    udp: false
+
+proxy-groups:
+  - name: "PROXY"
+    type: select
+    proxies:
+      - NAS-20172
+      - DIRECT
+
+rules:
+  - DOMAIN-SUFFIX,github.com,NAS-20172
+  - DOMAIN-SUFFIX,githubusercontent.com,NAS-20172
+  - DOMAIN-SUFFIX,githubassets.com,NAS-20172
+  - DOMAIN-SUFFIX,githubapp.com,NAS-20172
+  - DOMAIN-SUFFIX,github.dev,NAS-20172
+  - DOMAIN-SUFFIX,github.io,NAS-20172
+  - DOMAIN-SUFFIX,githubstatus.com,NAS-20172
+  - DOMAIN-SUFFIX,ghcr.io,NAS-20172
+  - DOMAIN-SUFFIX,codeload.github.com,NAS-20172
+  - GEOIP,CN,DIRECT
+  - MATCH,DIRECT
