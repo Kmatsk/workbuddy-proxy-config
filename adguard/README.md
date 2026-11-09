@@ -111,6 +111,17 @@ sudo tar -czf ~/adguard-$(date +%F).tar.gz -C /vol1/1000/docker AdGuard
 
 查询日志保留期在面板「设置 → 常规设置」里调，API 改会报 `unsupported interval`（`/control/querylog_config` 的字段校验比较挑），UI 改最省事。
 
+## 实测记录（2026-11-10，飞牛 NAS / x86_64）
+
+- AdGuard Home v0.107.80，`network_mode: host`，DNS 绑 `192.168.3.100:53`，面板 `:3000`
+- 过滤：AdGuard DNS filter 188167 条 + anti-AD 102508 条 + 本仓库抖音保守档 12 条
+- 拦截生效：`pangle.io`、`doubleclick.net`、`admaster.com.cn`、`gdt.qq.com`、`umeng.com` → `0.0.0.0`
+- 未误伤：`v3-web.douyinvod.com`、`p3-sign.douyinpic.com`、`api.amemv.com` 正常返回 CDN IP
+- 防污染：经 AdGuard 查 `www.google.com` 得到 `2001:4860:482a:7700::`；路由器直连得到 `2001::1`（污染）
+- 劫持确认：客户端查询后 `iptables -t nat -L OUTPUT -n -v` 的 `udp dpt:53` 计数递增，说明 AdGuard 的上游确实进了内核
+- 规则存活：v2rayA 连续重启 2 次，mangle 里的两条 MARK 规则仍在，LAN 解析未中断
+- 代理未受影响：`curl -x 192.168.3.100:20172 https://github.com` → 200（1.5–1.9s），baidu 0.22s
+
 ## 常见故障
 
 | 现象 | 原因 | 处理 |
