@@ -20,8 +20,11 @@
 ## 一、官方原文（中文）
 
 <!-- BEGIN UPSTREAM zh -->
+<!-- source: https://github.com/v2rayA/v2rayA/blob/main/README_zh.md#数据与升级 | commit: 92caf05 | synced: 2026-11-09 -->
 
-STALE-MARKER 这是一段过期的占位内容，用来验证自动同步。
+SQLite 数据库 `v2raya.db` 与生成的内核配置位于配置目录：Linux 与 macOS 为 `/etc/v2raya`，Windows 服务为 `%ProgramData%\SYSTEM\v2rayA`，`--lite` 为用户配置目录，也可用 `--config` 指定。systemd 与 OpenRC 单元把日志写到 `/var/log/v2raya/v2raya.log`，也可用 `--log-file` 或 `V2RAYA_LOG_FILE` 指定。程序在更新订阅、下载规则数据、测量延迟、解析 DNS、启动时和每周一次向 GitHub 检查新版本，以及 VMess 节点失败时向 `ntp.aliyun.com` 查询时间（用于区分时钟错误与节点故障）时发起网络请求。
+
+升级前先停止服务并备份配置目录。从 2.4 以下版本升级时，首次启动会迁移 BoltDB 数据库，旧文件保留为 `bolt.db.bak`（该名称已存在时为 `bolt.db.bak.1` 及后续编号），账户需要重新注册。`v2raya` 与 `v2raya_core` 必须一起升级：仪表板显示内核版本，版本不一致时显示横幅提示。
 
 <!-- END UPSTREAM zh -->
 
