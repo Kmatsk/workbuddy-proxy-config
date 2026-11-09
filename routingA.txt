@@ -1,0 +1,25 @@
+default: proxy
+
+# ===== 广告与追踪域名，直接拦截 =====
+domain(geosite:category-ads-all) -> block
+
+# ===== GitHub 全站强制走代理（直连 github.com/gist 完全不通、api 抖动大）=====
+domain(domain:github.com, domain:githubusercontent.com, domain:githubassets.com, domain:githubapp.com, domain:github.dev, domain:github.io, domain:githubstatus.com) -> proxy
+
+# ===== 学术站点：国内可访问的直连，避免绕路 =====
+domain(geosite:category-scholar-cn) -> direct
+
+# ===== 国外域名一律走代理（覆盖 gfwlist 漏判）=====
+# 必须写在 ip(geoip:cn) 之前：否则国外域名解析到国内 CDN 时会被直连
+domain(geosite:geolocation-!cn) -> proxy
+domain(geosite:google) -> proxy
+
+# ===== 大陆域名直连 =====
+domain(domain:mail.qq.com) -> direct
+domain(geosite:cn) -> direct
+
+# ===== 港澳 IP 走代理 =====
+ip(geoip:hk, geoip:mo) -> proxy
+
+# ===== 局域网与大陆 IP 直连 =====
+ip(geoip:private, geoip:cn) -> direct
