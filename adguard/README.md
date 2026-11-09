@@ -26,13 +26,11 @@ docker compose up -d          # 首次启动后浏览器开 http://<NAS_IP>:3000
 
 ```yaml
 network_mode: host
-ports:            # 仅用于界面显示，实际可达靠 host 网络本身
-  - "3000:3000/tcp"
-  - "53:53/tcp"
-  - "53:53/udp"
+ports:            # 仅用于界面显示与快捷访问，实际可达靠 host 网络本身
+  - "3000:3000"
 ```
 
-填了之后不要以为真的在做端口转发 —— 改端口号不会生效，面板永远是 `192.168.3.100:3000`、DNS 永远是 `192.168.3.100:53`。
+只映射面板端口就够了，DNS 的 53 写不写都一样（照样被丢弃）。填了之后不要以为真的在做端口转发 —— 改端口号不会生效，面板永远是 `192.168.3.100:3000`、DNS 永远是 `192.168.3.100:53`。
 
 ### 改管理员账号密码
 
@@ -229,7 +227,7 @@ sudo tar -czf ~/adguard-$(date +%F).tar.gz -C /vol1/1000/docker AdGuard
 - 拦截专项检查 11/11 命中：`doubleclick.net`、`cpro.baidu.com`、`pos.baidu.com`、`admaster.com.cn`、`pagead2.googlesyndication.com`、`pangle.io`、`pangolin-sdk-toutiao.com`、`gdt.qq.com`、`umeng.com`、`tracking.miaozhen.com`、`ads.kuaishou.com`
 - 补充包命中且主站无损：`ad/ads.kuaishou.com`、`cm/data.bilibili.com`、`afp.iqiyi.com`、`atm.youku.com`、`eclick.baidu.com` 被拦；`www.kuaishou.com`、`www.bilibili.com`、`www.iqiyi.com`、`www.youku.com` 正常
 - 容器重建（改 compose）后 mangle 两条规则仍在，53/3000 均正常；容器重建不影响 iptables
-- 改管理员账号：停容器 → 改 `conf/AdGuardHome.yaml` 的 `users`（bcrypt `$2a$`）→ 起容器，新账号登录 200、旧账号 403；`ports` 写进 compose 后 `HostConfig.PortBindings` 里三组映射齐全（3000/tcp、53/tcp、53/udp），运行时仍被 host 网络忽略
+- 改管理员账号：停容器 → 改 `conf/AdGuardHome.yaml` 的 `users`（bcrypt `$2a$`）→ 起容器，新账号登录 200、旧账号 403；`ports: - "3000:3000"` 写进 compose 后 `HostConfig.PortBindings` 里记录为 `{"3000/tcp":[{"HostPort":"3000"}]}`，运行时仍被 host 网络忽略
 
 ## 常见故障
 
