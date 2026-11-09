@@ -13,8 +13,9 @@
 | `scripts/backup-v2raya.sh` | 一键备份配置目录（默认停服打包，避免 SQLite 撕裂） | 升级前、定期备份 |
 | `scripts/restore-v2raya.sh` | 恢复备份（默认 dry-run，`--force` 才执行） | 回滚 / 换机迁移 |
 | `scripts/sync-upstream.py` | 抓上游 README 章节，写进上面那份手册 | 本地手动同步 / GitHub Actions |
-| `adguard/README.md` | **AdGuard Home 部署与排错**：DNS 链路、v2rayA 劫持豁免、路由器改法 | NAS 上的全屋 DNS 过滤 |
+| `adguard/README.md` | **AdGuard Home 部署与排错**：DNS 链路、v2rayA 劫持豁免、路由器改法、拦截模式与缓存两个坑 | NAS 上的全屋 DNS 过滤 |
 | `adguard/douyin-ads.txt` | 抖音/字节系广告域名规则（保守档，激进档默认注释） | AdGuard 自定义过滤器 |
+| `adguard/china-app-ads.txt` | 百度联盟、快手、B站、爱优腾广告接口与归因 SDK（三档分级） | AdGuard 自定义过滤器 |
 
 ## v2rayA 怎么用
 
@@ -77,7 +78,9 @@ LAN → 路由器 → PPPoE DNS 192.168.3.100:53 → AdGuard（过滤）→ v2ra
 
 部署细节、为什么要在 `mangle` 表打 `0x80` 标记绕过 v2rayA 的 DNS 劫持、路由器 PPPoE DNS 怎么填，都在 **[adguard/README.md](adguard/README.md)**。
 
-抖音规则单独一份：[adguard/douyin-ads.txt](adguard/douyin-ads.txt)。**DNS 层拦不掉信息流视频广告**（和正片同域名同 CDN），能拦的是穿山甲等广告 SDK、监测与统计上报，具体边界写在文件头和 README 里。
+抖音规则单独一份：[adguard/douyin-ads.txt](adguard/douyin-ads.txt)。国内其它广告位（百度联盟、快手、B站、爱奇艺/优酷）在 [adguard/china-app-ads.txt](adguard/china-app-ads.txt)。**DNS 层拦不掉信息流视频广告和贴片广告**（和正片同域名同 CDN），能拦的是广告 SDK、监测、统计上报、归因平台，具体边界写在文件头和 README 里。
+
+现网规则共 13 组、约 92 万条：HaGeZi Pro / AdRules / AdGuard DNS filter / Phishing Army / anti-AD / ShadowWhisperer Malware / URLHaus / AWAvenue / 四家国产手机 tracker，外加本仓库两份自定义规则。拦截模式必须用 `NXDOMAIN`，否则路由器会把 `0.0.0.0` 响应丢弃后 fallback 到备用 DNS——这条坑写在 [adguard/README.md](adguard/README.md)。
 
 ## 静态规则说明
 
