@@ -228,6 +228,44 @@ sudo tar -czf ~/adguard-$(date +%F).tar.gz -C /vol1/1000/docker AdGuard
 - 补充包命中且主站无损：`ad/ads.kuaishou.com`、`cm/data.bilibili.com`、`afp.iqiyi.com`、`atm.youku.com`、`eclick.baidu.com` 被拦；`www.kuaishou.com`、`www.bilibili.com`、`www.iqiyi.com`、`www.youku.com` 正常
 - 容器重建（改 compose）后 mangle 两条规则仍在，53/3000 均正常；容器重建不影响 iptables
 - 改管理员账号：停容器 → 改 `conf/AdGuardHome.yaml` 的 `users`（bcrypt `$2a$`）→ 起容器，新账号登录 200、旧账号 403；`ports: - "3000:3000"` 写进 compose 后 `HostConfig.PortBindings` 里记录为 `{"3000/tcp":[{"HostPort":"3000"}]}`，运行时仍被 host 网络忽略
+- **路由器重启后 PPPoE DNS 被运营商覆盖**：手工填的 `192.168.3.100` 消失，全屋回到联通 DNS。判定方法——停掉 AdGuard 后仍能解析 `www.163.com`，说明查询根本没到 AdGuard；同期用现编子域 `zz…adnxs.com` 走路由器解析，AdGuard 日志零记录
+- 拦截模式在路由器这一环的表现：`nxdomain` 时路由器把 NXDOMAIN 当失败、转去问备用 DNS，客户端仍拿到真 IP；改为 `default`（`0.0.0.0`）后直连 AdGuard 稳定返回 `0.0.0.0`，5 个冷门广告域名 5/5 命中
+- 容错：`fallback_dns` 设为 `tls://223.5.5.5`（DoT 853 端口，不经过 53 劫持），v2rayA 核心挂掉时 AdGuard 仍能解析，不至于全屋断网
+- 查询日志/统计保留期**只能网页改**：`/control/querylog_config`、`/control/stats_config` 传秒、毫秒、纳秒一律返回 `unsupported interval`
+- 解析延迟：命中缓存 <1ms（日志 `elapsedMs` 0.7–1.3ms），需上游递归时 200ms 上下；到 NAS 的 RTT 2ms
+
+## 确认路由器真的在用 AdGuard（三步法）
+
+配完路由器 DNS 不等于生效。按顺序做，能一次定位到底卡在哪：
+
+```bash
+# 1. 用现编域名查，看 AdGuard 日志有没有这条（有 = 转发通了）
+ipconfig /flushdns
+nslookup zz$RANDOM.adnxs.com            # 未缓存的广告子域，应被拦
+
+# 2. 停 AdGuard 10 秒，再查一个未缓存域名
+#    还能解析 → 路由器根本没用 AdGuard（用的是运营商 DNS）
+docker stop adguardhome
+
+# 3. 看 AdGuard 的上游是谁在回
+#    面板 → 设置 → DNS 设置 → 上游 DNS 服务器，正常情况下 223.5.5.5 / 119.29.29.29 都会有响应计数
+```
+
+第 2 步是最硬的证据：AdGuard 停了还能解析，说明查询压根没到它这里，前面所有"拦截不生效"的猜测都可以排除。
+
+常见成因：**PPPoE 里手工填的 DNS 在重拨后被运营商下发的值覆盖**。重启路由器就丢一次，所以"重启一下就恢复了"往往只是错觉——重启后路由器短暂用过 AdGuard，重拨后又换回联通 DNS。
+
+## 根治方案：让 AdGuard 接管 DHCP
+
+路由器 DHCP 不能改 DNS 参数时，唯一稳的做法是把 DHCP 交给 AdGuard：
+
+1. AdGuard → 设置 → DHCP 设置 → 启用，网关填 `192.168.3.1`，地址范围避开已用地址（如 `192.168.3.50`–`192.168.3.200`），DNS 服务器填 `192.168.3.100`
+2. **同时**在路由器上关掉 DHCP（顺序不能反，否则两个 DHCP 服务器抢答）
+3. 客户端重新联网
+
+好处：客户端直接拿到 `192.168.3.100`，绕开路由器的缓存、fallback 和 PPPoE 覆盖；AdGuard 日志里能看到每台设备的真实 IP，按设备做规则才有意义。
+
+代价：NAS 关机时，新设备拿不到 IP（已租约的设备到期前仍可用）。家用可接受。
 
 ## 常见故障
 
@@ -238,6 +276,6 @@ sudo tar -czf ~/adguard-$(date +%F).tar.gz -C /vol1/1000/docker AdGuard
 | 重启 v2rayA 后 DNS 全挂 | 用了 nat 表 RETURN 的旧方案 | 换 `dns-exempt.sh`（mangle 打标记版） |
 | 换了 NAS 的 IP 后全屋断网 | AdGuard 绑的还是旧 IP | 改 `AdGuardHome.yaml` 的 `bind_hosts`，或给 NAS 做 DHCP 保留 |
 | 全屋断网但 NAS 能上 | 路由器 DNS 指向 NAS，而 AdGuard/豁免规则挂了 | 先把 PPPoE 备用 DNS 设成 `223.5.5.5`，再修 |
-| 日志写着已拦截，客户端却拿到真 IP | `blocking_mode=default` 返回 `0.0.0.0`，被路由器 rebind protection 丢弃后 fallback | 改成 `nxdomain` |
+| 日志写着已拦截，客户端却拿到真 IP | 路由器把拦截响应当作失败，转去问备用 DNS（`nxdomain` 模式尤其容易触发） | 路由器上只保留一个上游；或让 AdGuard 接管 DHCP |
 | 改完 DNS，热门域名仍不生效 | 路由器缓存了改之前的解析结果，查询没到 AdGuard | 查日志确认无该查询后，清缓存或等 TTL 过期 |
 | 面板里客户端全是同一个公网 IP | 路由器转发时做了 NAT 回环 | 正常现象，过滤不受影响，只是分不清设备 |
