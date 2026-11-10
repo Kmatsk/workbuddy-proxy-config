@@ -13,6 +13,8 @@
 | `scripts/backup-v2raya.sh` | 一键备份配置目录（默认停服打包，避免 SQLite 撕裂） | 升级前、定期备份 |
 | `scripts/restore-v2raya.sh` | 恢复备份（默认 dry-run，`--force` 才执行） | 回滚 / 换机迁移 |
 | `scripts/sync-upstream.py` | 抓上游 README 章节，写进上面那份手册 | 本地手动同步 / GitHub Actions |
+| `scripts/healthcheck-v2raya.py` | 体检脚本：面板、节点、端口、代理连通、分流规则 | 定期自查 / 排障 |
+| `docs/healthcheck-2026-11-10.md` | 最近一次完整体检报告 | 排障参照 |
 | `adguard/README.md` | **AdGuard Home 部署与排错**：DNS 链路、v2rayA 劫持豁免、路由器改法、拦截模式与缓存两个坑 | NAS 上的全屋 DNS 过滤 |
 | `adguard/douyin-ads.txt` | 抖音/字节系广告域名规则（保守档，激进档默认注释） | AdGuard 自定义过滤器 |
 | `adguard/china-app-ads.txt` | 百度联盟、快手、B站、爱优腾广告接口与归因 SDK（三档分级） | AdGuard 自定义过滤器 |
@@ -78,9 +80,15 @@ LAN → 路由器 → PPPoE DNS 192.168.3.100:53 → AdGuard（过滤）→ v2ra
 
 部署细节、为什么要在 `mangle` 表打 `0x80` 标记绕过 v2rayA 的 DNS 劫持、路由器 PPPoE DNS 怎么填，都在 **[adguard/README.md](adguard/README.md)**。
 
+> AdGuard 的完整配置（含 22 个订阅列表、78 条自定义规则、备份与恢复脚本）已拆到独立仓库：
+> **[workbuddy-adguard-config](https://github.com/Kmatsk/workbuddy-adguard-config)**。
+> 这里只保留与代理分流耦合的那部分说明。
+
 抖音规则单独一份：[adguard/douyin-ads.txt](adguard/douyin-ads.txt)。国内其它广告位（百度联盟、快手、B站、爱奇艺/优酷）在 [adguard/china-app-ads.txt](adguard/china-app-ads.txt)。**DNS 层拦不掉信息流视频广告和贴片广告**（和正片同域名同 CDN），能拦的是广告 SDK、监测、统计上报、归因平台，具体边界写在文件头和 README 里。
 
-现网规则共 13 组、约 92 万条：HaGeZi Pro / AdRules / AdGuard DNS filter / Phishing Army / anti-AD / ShadowWhisperer Malware / URLHaus / AWAvenue / 四家国产手机 tracker，外加本仓库两份自定义规则。拦截模式必须用 `NXDOMAIN`，否则路由器会把 `0.0.0.0` 响应丢弃后 fallback 到备用 DNS——这条坑写在 [adguard/README.md](adguard/README.md)。
+现网规则共 22 组、约 219 万条：HaGeZi Pro / AdRules / AdGuard DNS filter / Phishing Army / anti-AD / ShadowWhisperer Malware / URLHaus / AWAvenue / 四家国产手机 tracker / OISD Small / 以及家长控制四件套（HaGeZi NSFW 7.4 万 + OISD NSFW 48.6 万 + HaGeZi Gambling 64.1 万 + HaGeZi DoH 3.6 千），外加本仓库两份自定义规则。
+
+拦截模式目前用 `0.0.0.0`（`blocking_mode: default`），实测正常工作——前提是路由器 PPPoE 的主 DNS 直接填 AdGuard（`192.168.3.100`），没有「主 DNS 失败就 fallback 到运营商 DNS」的链路。如果哪天发现广告又能解析了，先查这一步。
 
 ## 静态规则说明
 
